@@ -7,14 +7,21 @@ import '../message/message_screen.dart';
 import '../home/side_drawer.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  final int? initialIndex;
+  const HomeScreen({Key? key, this.initialIndex}) : super(key: key);
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex ?? 0;
+  }
 
   final _screens = const [
     QuotesScreen(),

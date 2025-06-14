@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:intl/intl.dart';
+import 'package:metatrader_clone/screens/home/home_screen.dart';
+import 'package:metatrader_clone/screens/home/side_drawer.dart'; // Import SideDrawer
 
 // --- UI Color and Style Constants ---
 const Color kBackgroundColor = Color(0xFF131722);
@@ -41,100 +43,108 @@ class _ChartScreenState extends State<ChartScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBackgroundColor,
-      appBar: _buildCustomAppBar(),
-      body: Column(
-        children: [
-          _buildTopTradeBar(),
-          _buildSymbolInfo(),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8.0,
-                vertical: 8.0,
+    return Column(
+      children: [
+        // Custom AppBar replacement
+        Container(
+          color: kAppBarColor,
+          padding: const EdgeInsets.only(top: 36, bottom: 8),
+          child: Row(
+            children: [
+              Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu, color: Colors.white),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
               ),
-              child: SfCartesianChart(
-                backgroundColor: kBackgroundColor,
-                plotAreaBorderWidth: 0,
-                primaryXAxis: DateTimeAxis(
-                  majorGridLines: const MajorGridLines(
-                    width: 0.2,
-                    color: kGridLineColor,
-                  ),
-                  axisLine: const AxisLine(width: 0.5, color: kAxisLabelColor),
-                  dateFormat: DateFormat.MMMd(),
-                  labelStyle: const TextStyle(
-                    color: kAxisLabelColor,
-                    fontSize: 10,
-                  ),
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.show_chart, color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'D1',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      Icons.draw_outlined,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ],
                 ),
-                primaryYAxis: NumericAxis(
-                  opposedPosition: true,
-                  majorGridLines: const MajorGridLines(
-                    width: 0.2,
-                    color: kGridLineColor,
-                  ),
-                  axisLine: const AxisLine(width: 0.5, color: kAxisLabelColor),
-                  labelStyle: const TextStyle(
-                    color: kAxisLabelColor,
-                    fontSize: 10,
-                  ),
-                ),
-                series: <CandleSeries<CandleData, DateTime>>[
-                  CandleSeries<CandleData, DateTime>(
-                    dataSource: _candleData,
-                    xValueMapper: (CandleData data, _) => data.date,
-                    lowValueMapper: (CandleData data, _) => data.low,
-                    highValueMapper: (CandleData data, _) => data.high,
-                    openValueMapper: (CandleData data, _) => data.open,
-                    closeValueMapper: (CandleData data, _) => data.close,
-                    bearColor: kBearishColor,
-                    bullColor: kBullishColor,
-                  ),
-                ],
-                trackballBehavior: TrackballBehavior(
-                  enable: true,
-                  activationMode: ActivationMode.singleTap,
-                ),
-                tooltipBehavior: _tooltipBehavior,
               ),
+            ],
+          ),
+        ),
+        _buildTopTradeBar(),
+        _buildSymbolInfo(),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
+            child: SfCartesianChart(
+              backgroundColor: kBackgroundColor,
+              plotAreaBorderWidth: 0,
+              primaryXAxis: DateTimeAxis(
+                majorGridLines: const MajorGridLines(
+                  width: 0.2,
+                  color: kGridLineColor,
+                ),
+                axisLine: const AxisLine(width: 0.5, color: kAxisLabelColor),
+                dateFormat: DateFormat.MMMd(),
+                labelStyle: const TextStyle(
+                  color: kAxisLabelColor,
+                  fontSize: 10,
+                ),
+              ),
+              primaryYAxis: NumericAxis(
+                opposedPosition: true,
+                majorGridLines: const MajorGridLines(
+                  width: 0.2,
+                  color: kGridLineColor,
+                ),
+                axisLine: const AxisLine(width: 0.5, color: kAxisLabelColor),
+                labelStyle: const TextStyle(
+                  color: kAxisLabelColor,
+                  fontSize: 10,
+                ),
+              ),
+              series: <CandleSeries<CandleData, DateTime>>[
+                CandleSeries<CandleData, DateTime>(
+                  dataSource: _candleData,
+                  xValueMapper: (CandleData data, _) => data.date,
+                  lowValueMapper: (CandleData data, _) => data.low,
+                  highValueMapper: (CandleData data, _) => data.high,
+                  openValueMapper: (CandleData data, _) => data.open,
+                  closeValueMapper: (CandleData data, _) => data.close,
+                  bearColor: kBearishColor,
+                  bullColor: kBullishColor,
+                ),
+              ],
+              trackballBehavior: TrackballBehavior(
+                enable: true,
+                activationMode: ActivationMode.singleTap,
+              ),
+              tooltipBehavior: _tooltipBehavior,
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  /// Builds the top app bar with timeframe selection.
-  AppBar _buildCustomAppBar() {
-    return AppBar(
-      backgroundColor: kAppBarColor,
-      elevation: 0,
-      centerTitle: true,
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.show_chart, color: Colors.white, size: 20),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: const Text(
-              'D1',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Icon(Icons.draw_outlined, color: Colors.white, size: 20),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
