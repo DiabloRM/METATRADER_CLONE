@@ -6,47 +6,52 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import '../../models/trading_models.dart';
-import 'package:metatrader_clone/screens/home/home_screen.dart';
-import 'package:metatrader_clone/screens/home/side_drawer.dart'; // Import SideDrawer
 
 // --- UI Color and Style Constants ---
 const Color kBackgroundColor = Color(0xFF131722);
 const Color kAppBarColor = Color(0xFF131722);
-const Color kBullishColor = Color(0xFF26a69a); // Teal for bullish
-const Color kBearishColor = Color(0xFFef5350); // Red for bearish
+const Color kBullishColor = Color(0xFF26a69a);
+const Color kBearishColor = Color(0xFFef5350);
 const Color kBuyButtonColor = Color(0xFF0277BD);
 const Color kGridLineColor = Color(0x33888888);
 const Color kAxisLabelColor = Color(0xff888888);
 const Color kCurrentPriceColor = Colors.cyanAccent;
 const Color kLoadingColor = Color(0xFF4CAF50);
 const Color kErrorColor = Color(0xFFF44336);
+const Color kVolumeColor = Color(0xFF666666);
+const Color kSMA20Color = Colors.yellow;
+const Color kSMA50Color = Colors.orange;
 
 // Timeframe options
 enum Timeframe { M1, M5, M15, M30, H1, H4, D1, W1, MN1 }
 
-// --- ChartScreen Widget ---
-class ChartScreen extends StatefulWidget {
-  const ChartScreen({super.key});
+class EnhancedChartScreen extends StatefulWidget {
+  const EnhancedChartScreen({super.key});
 
   @override
-  State<ChartScreen> createState() => _ChartScreenState();
+  State<EnhancedChartScreen> createState() => _EnhancedChartScreenState();
 }
 
-class _ChartScreenState extends State<ChartScreen> {
+class _EnhancedChartScreenState extends State<EnhancedChartScreen> {
   final MetaQuotesApiService _apiService = MetaQuotesApiService();
 
   // State variables
   double _volume = 0.01;
   late List<CandleData> _candleData;
+  late TooltipBehavior _tooltipBehavior;
   bool _isLoading = true;
+  bool _isConnected = false;
   bool _usingMockData = false;
   String? _error;
   String _selectedSymbol = 'EURUSD';
   Timeframe _selectedTimeframe = Timeframe.D1;
   MarketData? _currentQuote;
 
-  // Syncfusion chart tooltip behavior
-  late TooltipBehavior _tooltipBehavior;
+  // Technical indicators visibility
+  bool _showVolume = true;
+  bool _showSMA20 = true;
+  bool _showSMA50 = false;
+  bool _showRSI = false;
 
   // Available symbols
   final List<String> _availableSymbols = [
@@ -63,13 +68,18 @@ class _ChartScreenState extends State<ChartScreen> {
   @override
   void initState() {
     super.initState();
-    _tooltipBehavior = TooltipBehavior(enable: true);
     _initializeChart();
     _loadChartData();
   }
 
   void _initializeChart() {
     _candleData = _generateMockCandlestickData();
+    _tooltipBehavior = TooltipBehavior(
+      enable: true,
+      color: Colors.black87,
+      format:
+          'point.x :\nOpen: point.open\nHigh: point.high\nLow: point.low\nClose: point.close\nVolume: point.volume',
+    );
   }
 
   Future<void> _loadChartData() async {
@@ -79,7 +89,6 @@ class _ChartScreenState extends State<ChartScreen> {
     });
 
     try {
-      // Try to get real chart data from API
       final chartResponse = await _apiService.getChartData(
         symbol: _selectedSymbol,
         timeframe: _getTimeframeString(_selectedTimeframe),
@@ -87,12 +96,12 @@ class _ChartScreenState extends State<ChartScreen> {
       );
 
       if (chartResponse['success'] && chartResponse['data'] != null) {
-        // Convert API data to candle data
         final candleData = _convertApiDataToCandles(chartResponse['data']);
 
         setState(() {
           _candleData = candleData;
           _isLoading = false;
+          _isConnected = chartResponse['source'] == 'mt5';
           _usingMockData = chartResponse['source'] == 'mock';
           _currentQuote = _generateQuoteFromChartData(chartResponse['data']);
         });
@@ -139,6 +148,7 @@ class _ChartScreenState extends State<ChartScreen> {
     setState(() {
       _candleData = _generateMockCandlestickData();
       _isLoading = false;
+      _isConnected = false;
       _usingMockData = true;
       _currentQuote = _generateMockQuote();
     });
@@ -220,20 +230,74 @@ class _ChartScreenState extends State<ChartScreen> {
     }
   }
 
+  // Technical Indicators
+  List<double> _calculateSMA(int period) {
+    if (_candleData.length < period) return List.filled(_candleData.length, 0);
+
+    List<double> sma = [];
+    for (int i = 0; i < _candleData.length; i++) {
+      if (i < period - 1) {
+        sma.add(0);
+      } else {
+        double sum = 0;
+        for (int j = i - period + 1; j <= i; j++) {
+          sum += _candleData[j].close;
+        }
+        sma.add(sum / period);
+      }
+    }
+    return sma;
+  }
+
+  List<double> _calculateRSI(int period) {
+    if (_candleData.length < period + 1)
+      return List.filled(_candleData.length, 50);
+
+    List<double> rsi = [];
+    List<double> gains = [];
+    List<double> losses = [];
+
+    // Calculate gains and losses
+    for (int i = 1; i < _candleData.length; i++) {
+      double change = _candleData[i].close - _candleData[i - 1].close;
+      gains.add(change > 0 ? change : 0);
+      losses.add(change < 0 ? -change : 0);
+    }
+
+    // Calculate RSI
+    for (int i = 0; i < _candleData.length; i++) {
+      if (i < period) {
+        rsi.add(50);
+      } else {
+        double avgGain =
+            gains.sublist(i - period, i).reduce((a, b) => a + b) / period;
+        double avgLoss =
+            losses.sublist(i - period, i).reduce((a, b) => a + b) / period;
+
+        if (avgLoss == 0) {
+          rsi.add(100);
+        } else {
+          double rs = avgGain / avgLoss;
+          rsi.add(100 - (100 / (1 + rs)));
+        }
+      }
+    }
+
+    return rsi;
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Set status bar to light
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light);
 
     return Column(
       children: [
         _buildAppBar(),
         if (_usingMockData) _buildDemoModeBanner(),
+        _buildIndicatorControls(),
         _buildTopTradeBar(),
         _buildSymbolInfo(),
-        Expanded(
-          child: _buildChart(),
-        ),
+        Expanded(child: _buildChart()),
       ],
     );
   }
@@ -244,11 +308,9 @@ class _ChartScreenState extends State<ChartScreen> {
       padding: const EdgeInsets.only(top: 36, bottom: 8),
       child: Row(
         children: [
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.menu, color: Colors.white),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-            ),
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => Navigator.pop(context),
           ),
           Expanded(
             child: Row(
@@ -259,8 +321,6 @@ class _ChartScreenState extends State<ChartScreen> {
                 _buildTimeframeSelector(),
                 const SizedBox(width: 8),
                 _buildSymbolSelector(),
-                const SizedBox(width: 8),
-                const Icon(Icons.draw_outlined, color: Colors.white, size: 20),
               ],
             ),
           ),
@@ -288,21 +348,53 @@ class _ChartScreenState extends State<ChartScreen> {
           const Expanded(
             child: Text(
               'Showing demo chart data. Server connection unavailable.',
-              style: TextStyle(
-                color: Colors.orange,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: Colors.orange, fontSize: 12),
             ),
           ),
           TextButton(
             onPressed: _loadChartData,
-            child: const Text(
-              'Retry',
-              style: TextStyle(color: Colors.orange, fontSize: 12),
-            ),
+            child: const Text('Retry',
+                style: TextStyle(color: Colors.orange, fontSize: 12)),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildIndicatorControls() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: kAppBarColor.withOpacity(0.5),
+      child: Row(
+        children: [
+          _buildIndicatorToggle('Volume', _showVolume,
+              (value) => setState(() => _showVolume = value)),
+          const SizedBox(width: 16),
+          _buildIndicatorToggle('SMA20', _showSMA20,
+              (value) => setState(() => _showSMA20 = value)),
+          const SizedBox(width: 16),
+          _buildIndicatorToggle('SMA50', _showSMA50,
+              (value) => setState(() => _showSMA50 = value)),
+          const SizedBox(width: 16),
+          _buildIndicatorToggle(
+              'RSI', _showRSI, (value) => setState(() => _showRSI = value)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIndicatorToggle(
+      String label, bool value, Function(bool) onChanged) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Checkbox(
+          value: value,
+          onChanged: (newValue) => onChanged(newValue ?? false),
+          activeColor: kCurrentPriceColor,
+        ),
+        Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+      ],
     );
   }
 
@@ -322,9 +414,7 @@ class _ChartScreenState extends State<ChartScreen> {
             Text(
               _getTimeframeString(_selectedTimeframe),
               style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+                  color: Colors.white, fontWeight: FontWeight.bold),
             ),
             const SizedBox(width: 4),
             const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
@@ -356,9 +446,7 @@ class _ChartScreenState extends State<ChartScreen> {
             Text(
               _selectedSymbol,
               style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+                  color: Colors.white, fontWeight: FontWeight.bold),
             ),
             const SizedBox(width: 4),
             const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
@@ -382,10 +470,8 @@ class _ChartScreenState extends State<ChartScreen> {
           children: [
             CircularProgressIndicator(color: kLoadingColor),
             SizedBox(height: 16),
-            Text(
-              'Loading chart data...',
-              style: TextStyle(color: Colors.white),
-            ),
+            Text('Loading chart data...',
+                style: TextStyle(color: Colors.white)),
           ],
         ),
       );
@@ -398,21 +484,15 @@ class _ChartScreenState extends State<ChartScreen> {
           children: [
             const Icon(Icons.error_outline, color: kErrorColor, size: 48),
             const SizedBox(height: 16),
-            Text(
-              'Error: $_error',
-              style: const TextStyle(color: kErrorColor),
-              textAlign: TextAlign.center,
-            ),
+            Text('Error: $_error',
+                style: const TextStyle(color: kErrorColor),
+                textAlign: TextAlign.center),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _loadChartData,
-              child: const Text('Retry'),
-            ),
+                onPressed: _loadChartData, child: const Text('Retry')),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: _loadMockData,
-              child: const Text('Use Demo Data'),
-            ),
+                onPressed: _loadMockData, child: const Text('Use Demo Data')),
           ],
         ),
       );
@@ -422,58 +502,29 @@ class _ChartScreenState extends State<ChartScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
       child: Column(
         children: [
-          // Main candlestick chart (70% of height)
+          // Main price chart
           Expanded(
-            flex: 7,
+            flex: _showRSI ? 6 : 7,
             child: SfCartesianChart(
               backgroundColor: kBackgroundColor,
               plotAreaBorderWidth: 0,
               primaryXAxis: DateTimeAxis(
-                majorGridLines: const MajorGridLines(
-                  width: 0.2,
-                  color: kGridLineColor,
-                ),
+                majorGridLines:
+                    const MajorGridLines(width: 0.2, color: kGridLineColor),
                 axisLine: const AxisLine(width: 0.5, color: kAxisLabelColor),
                 dateFormat: DateFormat.MMMd(),
-                labelStyle: const TextStyle(
-                  color: kAxisLabelColor,
-                  fontSize: 10,
-                ),
+                labelStyle:
+                    const TextStyle(color: kAxisLabelColor, fontSize: 10),
               ),
               primaryYAxis: NumericAxis(
                 opposedPosition: true,
-                majorGridLines: const MajorGridLines(
-                  width: 0.2,
-                  color: kGridLineColor,
-                ),
+                majorGridLines:
+                    const MajorGridLines(width: 0.2, color: kGridLineColor),
                 axisLine: const AxisLine(width: 0.5, color: kAxisLabelColor),
-                labelStyle: const TextStyle(
-                  color: kAxisLabelColor,
-                  fontSize: 10,
-                ),
+                labelStyle:
+                    const TextStyle(color: kAxisLabelColor, fontSize: 10),
               ),
-              series: <CartesianSeries>[
-                // Candlestick series
-                CandleSeries<CandleData, DateTime>(
-                  dataSource: _candleData,
-                  xValueMapper: (CandleData data, _) => data.date,
-                  lowValueMapper: (CandleData data, _) => data.low,
-                  highValueMapper: (CandleData data, _) => data.high,
-                  openValueMapper: (CandleData data, _) => data.open,
-                  closeValueMapper: (CandleData data, _) => data.close,
-                  bearColor: kBearishColor,
-                  bullColor: kBullishColor,
-                ),
-                // Moving Average (SMA 20)
-                LineSeries<CandleData, DateTime>(
-                  dataSource: _candleData,
-                  xValueMapper: (CandleData data, _) => data.date,
-                  yValueMapper: (CandleData data, _) => _calculateSMA(20),
-                  color: Colors.yellow,
-                  width: 1,
-                  name: 'SMA 20',
-                ),
-              ],
+              series: _buildPriceSeries(),
               trackballBehavior: TrackballBehavior(
                 enable: true,
                 activationMode: ActivationMode.singleTap,
@@ -487,69 +538,139 @@ class _ChartScreenState extends State<ChartScreen> {
               ),
             ),
           ),
-          // Volume chart (30% of height)
-          Expanded(
-            flex: 3,
-            child: SfCartesianChart(
-              backgroundColor: kBackgroundColor,
-              plotAreaBorderWidth: 0,
-              primaryXAxis: DateTimeAxis(
-                majorGridLines: const MajorGridLines(
-                  width: 0.2,
-                  color: kGridLineColor,
+          // RSI Chart (if enabled)
+          if (_showRSI)
+            Expanded(
+              flex: 2,
+              child: SfCartesianChart(
+                backgroundColor: kBackgroundColor,
+                plotAreaBorderWidth: 0,
+                primaryXAxis: DateTimeAxis(
+                  majorGridLines:
+                      const MajorGridLines(width: 0.2, color: kGridLineColor),
+                  axisLine: const AxisLine(width: 0.5, color: kAxisLabelColor),
+                  dateFormat: DateFormat.MMMd(),
+                  labelStyle:
+                      const TextStyle(color: kAxisLabelColor, fontSize: 8),
                 ),
-                axisLine: const AxisLine(width: 0.5, color: kAxisLabelColor),
-                dateFormat: DateFormat.MMMd(),
-                labelStyle: const TextStyle(
-                  color: kAxisLabelColor,
-                  fontSize: 8,
+                primaryYAxis: NumericAxis(
+                  minimum: 0,
+                  maximum: 100,
+                  majorGridLines:
+                      const MajorGridLines(width: 0.2, color: kGridLineColor),
+                  axisLine: const AxisLine(width: 0.5, color: kAxisLabelColor),
+                  labelStyle:
+                      const TextStyle(color: kAxisLabelColor, fontSize: 8),
                 ),
-              ),
-              primaryYAxis: NumericAxis(
-                majorGridLines: const MajorGridLines(
-                  width: 0.2,
-                  color: kGridLineColor,
+                series: <CartesianSeries>[
+                  LineSeries<CandleData, DateTime>(
+                    dataSource: _candleData,
+                    xValueMapper: (CandleData data, _) => data.date,
+                    yValueMapper: (CandleData data, index) =>
+                        _calculateRSI(14)[index],
+                    color: Colors.purple,
+                    width: 1,
+                    name: 'RSI 14',
+                  ),
+                ],
+                tooltipBehavior: TooltipBehavior(
+                  enable: true,
+                  format: 'point.x : RSI: point.y',
                 ),
-                axisLine: const AxisLine(width: 0.5, color: kAxisLabelColor),
-                labelStyle: const TextStyle(
-                  color: kAxisLabelColor,
-                  fontSize: 8,
-                ),
-              ),
-              series: <CartesianSeries>[
-                // Volume bars
-                ColumnSeries<CandleData, DateTime>(
-                  dataSource: _candleData,
-                  xValueMapper: (CandleData data, _) => data.date,
-                  yValueMapper: (CandleData data, _) => data.volume,
-                  color: Colors.grey.withOpacity(0.7),
-                  width: 0.8,
-                  name: 'Volume',
-                ),
-              ],
-              tooltipBehavior: TooltipBehavior(
-                enable: true,
-                format: 'point.x : Volume: point.y',
               ),
             ),
-          ),
+          // Volume Chart (if enabled)
+          if (_showVolume)
+            Expanded(
+              flex: 2,
+              child: SfCartesianChart(
+                backgroundColor: kBackgroundColor,
+                plotAreaBorderWidth: 0,
+                primaryXAxis: DateTimeAxis(
+                  majorGridLines:
+                      const MajorGridLines(width: 0.2, color: kGridLineColor),
+                  axisLine: const AxisLine(width: 0.5, color: kAxisLabelColor),
+                  dateFormat: DateFormat.MMMd(),
+                  labelStyle:
+                      const TextStyle(color: kAxisLabelColor, fontSize: 8),
+                ),
+                primaryYAxis: NumericAxis(
+                  majorGridLines:
+                      const MajorGridLines(width: 0.2, color: kGridLineColor),
+                  axisLine: const AxisLine(width: 0.5, color: kAxisLabelColor),
+                  labelStyle:
+                      const TextStyle(color: kAxisLabelColor, fontSize: 8),
+                ),
+                series: <CartesianSeries>[
+                  ColumnSeries<CandleData, DateTime>(
+                    dataSource: _candleData,
+                    xValueMapper: (CandleData data, _) => data.date,
+                    yValueMapper: (CandleData data, _) => data.volume,
+                    color: kVolumeColor,
+                    width: 0.8,
+                    name: 'Volume',
+                  ),
+                ],
+                tooltipBehavior: TooltipBehavior(
+                  enable: true,
+                  format: 'point.x : Volume: point.y',
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  // Helper method to calculate Simple Moving Average
-  double _calculateSMA(int period) {
-    if (_candleData.length < period) return 0;
+  List<CartesianSeries> _buildPriceSeries() {
+    List<CartesianSeries> series = [
+      // Candlestick series
+      CandleSeries<CandleData, DateTime>(
+        dataSource: _candleData,
+        xValueMapper: (CandleData data, _) => data.date,
+        lowValueMapper: (CandleData data, _) => data.low,
+        highValueMapper: (CandleData data, _) => data.high,
+        openValueMapper: (CandleData data, _) => data.open,
+        closeValueMapper: (CandleData data, _) => data.close,
+        bearColor: kBearishColor,
+        bullColor: kBullishColor,
+        name: 'Price',
+      ),
+    ];
 
-    double sum = 0;
-    for (int i = _candleData.length - period; i < _candleData.length; i++) {
-      sum += _candleData[i].close;
+    // Add SMA 20 if enabled
+    if (_showSMA20) {
+      final sma20 = _calculateSMA(20);
+      series.add(
+        LineSeries<CandleData, DateTime>(
+          dataSource: _candleData,
+          xValueMapper: (CandleData data, _) => data.date,
+          yValueMapper: (CandleData data, index) => sma20[index],
+          color: kSMA20Color,
+          width: 1,
+          name: 'SMA 20',
+        ),
+      );
     }
-    return sum / period;
+
+    // Add SMA 50 if enabled
+    if (_showSMA50) {
+      final sma50 = _calculateSMA(50);
+      series.add(
+        LineSeries<CandleData, DateTime>(
+          dataSource: _candleData,
+          xValueMapper: (CandleData data, _) => data.date,
+          yValueMapper: (CandleData data, index) => sma50[index],
+          color: kSMA50Color,
+          width: 1,
+          name: 'SMA 50',
+        ),
+      );
+    }
+
+    return series;
   }
 
-  /// Builds the SELL/BUY buttons and volume control bar.
   Widget _buildTopTradeBar() {
     final currentPrice = _currentQuote?.last ?? 1.14284;
     final bid = _currentQuote?.bid ?? currentPrice - 0.0001;
@@ -572,8 +693,7 @@ class _ChartScreenState extends State<ChartScreen> {
                 IconButton(
                   icon: const Icon(Icons.remove, color: Colors.white, size: 20),
                   onPressed: () => setState(
-                    () => _volume = (_volume - 0.01).clamp(0.01, 100.0),
-                  ),
+                      () => _volume = (_volume - 0.01).clamp(0.01, 100.0)),
                 ),
                 Text(
                   _volume.toStringAsFixed(2),
@@ -586,8 +706,7 @@ class _ChartScreenState extends State<ChartScreen> {
                 IconButton(
                   icon: const Icon(Icons.add, color: Colors.white, size: 20),
                   onPressed: () => setState(
-                    () => _volume = (_volume + 0.01).clamp(0.01, 100.0),
-                  ),
+                      () => _volume = (_volume + 0.01).clamp(0.01, 100.0)),
                 ),
               ],
             ),
@@ -602,13 +721,8 @@ class _ChartScreenState extends State<ChartScreen> {
     );
   }
 
-  /// A helper to create the styled SELL and BUY buttons.
   Widget _buildTradeButton(
-    String label,
-    String price,
-    String sup,
-    Color color,
-  ) {
+      String label, String price, String sup, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
@@ -653,7 +767,6 @@ class _ChartScreenState extends State<ChartScreen> {
     );
   }
 
-  /// Builds the section displaying symbol info and the current price.
   Widget _buildSymbolInfo() {
     final currentPrice = _currentQuote?.last ?? 1.14284;
     final timestamp = _currentQuote?.timestamp ?? DateTime.now();

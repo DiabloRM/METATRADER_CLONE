@@ -4,11 +4,9 @@ class RegisterModel {
   final String confirmPassword;
   final String name;
   final String country;
-  final String? state;
   final String city;
   final String zipCode;
   final String phone;
-  final String? address;
 
   RegisterModel({
     required this.email,
@@ -16,23 +14,34 @@ class RegisterModel {
     required this.confirmPassword,
     required this.name,
     required this.country,
-    this.state,
     required this.city,
     required this.zipCode,
     required this.phone,
-    this.address,
   });
 
-  Map<String, dynamic> toJson() => {
-        'email': email,
-        'password': password,
-        'confirmPassword': confirmPassword,
-        'name': name,
-        'country': country,
-        'state': state,
-        'city': city,
-        'zipCode': zipCode,
-        'phone': phone,
-        'address': address,
-      };
+  Map<String, dynamic> toJson() {
+    return {
+      'email': email,
+      'password': password,
+      'confirmPassword': confirmPassword,
+      'name': name,
+      'country': country,
+      'city': city,
+      'zipCode': zipCode,
+      'phone': phone,
+    };
+  }
+
+  factory RegisterModel.fromJson(Map<String, dynamic> json) {
+    return RegisterModel(
+      email: json['email'] as String,
+      password: json['password'] as String,
+      confirmPassword: json['confirmPassword'] as String,
+      name: json['name'] as String,
+      country: json['country'] as String,
+      city: json['city'] as String,
+      zipCode: json['zipCode'] as String,
+      phone: json['phone'] as String,
+    );
+  }
 }

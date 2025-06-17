@@ -23,12 +23,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _currentIndex = widget.initialIndex ?? 0;
   }
 
-  final _screens = const [
-    QuotesScreen(),
-    ChartScreen(),
-    TradeScreen(),
-    HistoryScreen(),
-    MessageScreen(),
+  final _screens = [
+    const QuotesScreen(),
+    const ChartScreen(),
+    const TradeScreen(),
+    const HistoryScreen(),
+    const MessageScreen(),
   ];
 
   @override
