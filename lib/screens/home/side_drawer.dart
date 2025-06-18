@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:metatrader_clone/providers/auth_provider.dart';
+import 'package:metatrader_clone/screens/auth/login_screen.dart';
 import 'package:metatrader_clone/screens/home/about_screen.dart';
 import 'package:metatrader_clone/screens/home/news_screen.dart';
 import 'package:metatrader_clone/screens/home/journal_screen.dart';
@@ -13,34 +16,135 @@ class SideDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.user;
+    final isAuthenticated = authProvider.isAuthenticated;
+
     return Drawer(
       backgroundColor: const Color(0xFF1E1F23),
       child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.symmetric(vertical: 16),
           children: [
-            ListTile(
-              leading: const CircleAvatar(child: Icon(Icons.person)),
-              title: const Text(
-                "Hemant Agrawal",
-                style: TextStyle(color: Colors.white),
-              ),
-              subtitle: const Text(
-                "5036996148 - MetaQuotes-Demo",
-                style: TextStyle(color: Colors.white54),
-              ),
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(6),
+            // User Info Section
+            if (isAuthenticated && user != null)
+              ListTile(
+                leading: const CircleAvatar(child: Icon(Icons.person)),
+                title: Text(
+                  user.name,
+                  style: const TextStyle(color: Colors.white),
                 ),
-                child: const Text(
-                  "Demo",
-                  style: TextStyle(fontSize: 10, color: Colors.white),
+                subtitle: Text(
+                  "${user.login} - MetaQuotes-Demo",
+                  style: const TextStyle(color: Colors.white54),
                 ),
+                trailing: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    "Demo",
+                    style: TextStyle(fontSize: 10, color: Colors.white),
+                  ),
+                ),
+              )
+            else
+              // Guest/Not Logged In Section
+              Column(
+                children: [
+                  ListTile(
+                    leading:
+                        const CircleAvatar(child: Icon(Icons.person_outline)),
+                    title: const Text(
+                      "Guest User",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    subtitle: const Text(
+                      "Not logged in",
+                      style: TextStyle(color: Colors.white54),
+                    ),
+                    trailing: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.grey,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        "Guest",
+                        style: TextStyle(fontSize: 10, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.of(context).pop(); // Close drawer
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const LoginScreen(),
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              'LOGIN',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              side: const BorderSide(color: Colors.white54),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            onPressed: () {
+                              Navigator.of(context).pop(); // Close drawer
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const RegisterScreen(),
+                                ),
+                              );
+                            },
+                            child: const Text(
+                              'REGISTER',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white54,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ),
             const Divider(color: Colors.white24),
             // _drawerItem(
             //   Icons.import_export,
@@ -88,6 +192,13 @@ class SideDrawer extends StatelessWidget {
               "Settings",
               onTap: () => _select(context, 9),
             ),
+            // Add logout option for authenticated users
+            if (isAuthenticated)
+              _drawerItem(
+                Icons.logout,
+                "Logout",
+                onTap: () => _logout(context),
+              ),
             _drawerItem(
               Icons.calendar_today,
               "Economic calendar",
@@ -220,5 +331,37 @@ class SideDrawer extends StatelessWidget {
     }
     // Call the callback for other items
     onItemSelected?.call(index);
+  }
+
+  void _logout(BuildContext context) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    try {
+      await authProvider.logout();
+
+      // Check if widget is still mounted before using context
+      if (context.mounted) {
+        Navigator.of(context).pop(); // Close drawer
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Successfully logged out'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      // Check if widget is still mounted before using context
+      if (context.mounted) {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Logout failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

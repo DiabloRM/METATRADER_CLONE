@@ -6,6 +6,7 @@ import 'package:metatrader_clone/screens/auth/login_screen.dart';
 import 'package:metatrader_clone/screens/home/home_screen.dart';
 import 'package:metatrader_clone/providers/auth_provider.dart';
 import 'package:metatrader_clone/models/register_model.dart';
+import 'package:metatrader_clone/services/google_signin_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -74,6 +75,77 @@ class _RegisterScreenState extends State<RegisterScreen> {
             _isLoading = false;
           });
         }
+      }
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // First check if Google Sign-In is available
+      final googleService = GoogleSignInService();
+      final isAvailable = await googleService.isAvailable();
+
+      if (!isAvailable) {
+        throw Exception(
+            'Google Sign-In is not available on this platform. Please use email/password registration.');
+      }
+
+      await context.read<AuthProvider>().signInWithGoogle();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Google Sign-In successful!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        String errorMessage = e.toString();
+
+        // Handle specific Google Sign-In errors
+        if (errorMessage.contains('channel-error') ||
+            errorMessage.contains('not available on this platform') ||
+            errorMessage.contains('PlatformException') ||
+            errorMessage.contains('Google Sign-In error')) {
+          errorMessage =
+              'Google Sign-In is not available on this platform. Please use email/password registration.';
+        } else if (errorMessage.contains('cancelled')) {
+          // User cancelled, don't show error
+          setState(() {
+            _isLoading = false;
+          });
+          return;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'OK',
+              textColor: Colors.white,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              },
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
@@ -273,9 +345,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             side: BorderSide.none,
                           ),
-                          onPressed: () {
-                            // Handle Sign in with Google
-                          },
+                          onPressed: _isLoading ? null : _signInWithGoogle,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

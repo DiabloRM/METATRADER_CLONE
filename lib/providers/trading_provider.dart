@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
-import '../models/trading_models.dart';
 import '../services/trading_service.dart';
-import '../services/api_service.dart';
+import '../models/trading_models.dart';
 
 class TradingProvider with ChangeNotifier {
   final TradingService _tradingService;

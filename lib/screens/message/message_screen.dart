@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/mt5_provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../models/message.dart';
+import '../../models/message_model.dart';
 import '../auth/login_screen.dart';
 import '../auth/register_screen.dart';
 
@@ -66,6 +66,7 @@ class _MessageScreenState extends State<MessageScreen> {
             timestamp: DateTime.now().subtract(Duration(days: 1)),
             isRead: false,
             type: 'system',
+            priority: 'medium',
           ),
           Message(
             id: '2',
@@ -76,6 +77,7 @@ class _MessageScreenState extends State<MessageScreen> {
             timestamp: DateTime.now().subtract(Duration(hours: 6)),
             isRead: true,
             type: 'news',
+            priority: 'high',
           ),
         ];
         _unreadCount = 1;

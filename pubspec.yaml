@@ -34,6 +34,10 @@ dependencies:
   google_fonts: ^6.1.0
   intl: ^0.18.1
   syncfusion_flutter_charts: ^29.2.10
+  google_sign_in: ^6.1.6
+  google_sign_in_web: ^0.12.3
+  googleapis: ^11.0.0
+  googleapis_auth: ^1.4.1
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

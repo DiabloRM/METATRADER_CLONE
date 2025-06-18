@@ -6,8 +6,10 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import '../../models/trading_models.dart';
-import 'package:metatrader_clone/screens/home/home_screen.dart';
-import 'package:metatrader_clone/screens/home/side_drawer.dart'; // Import SideDrawer
+import 'package:provider/provider.dart';
+import 'package:metatrader_clone/providers/trading_provider.dart';
+import 'package:metatrader_clone/providers/mt5_provider.dart';
+import 'package:metatrader_clone/services/quotes_websocket_service.dart';
 
 // --- UI Color and Style Constants ---
 const Color kBackgroundColor = Color(0xFF131722);

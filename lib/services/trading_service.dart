@@ -1,10 +1,9 @@
-import 'dart:convert';
 import 'dart:io';
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:metatrader_clone/services/api_service.dart';
 import '../models/trading_models.dart';
-import 'api_service.dart';
 import '../config/api_config.dart';
+import 'package:dio/dio.dart';
 
 class TradingService {
   final MetaQuotesApiService _apiService;
